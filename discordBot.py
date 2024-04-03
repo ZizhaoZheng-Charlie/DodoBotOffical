@@ -33,10 +33,10 @@ async def on_message(message):
 
     if message.content.startswith("[hello]"):
         await message.channel.send(f"hello! {message.author.name}", tts=True)
-        
+
     # connects the bot to voice channel
     if message.content.startswith("[connect]"):
-
+        await message.delete()
         if message.author.voice:
 
             channel = message.author.voice.channel
@@ -44,14 +44,16 @@ async def on_message(message):
             await channel.connect()
         else:
             await message.channel.send("you are not in voice channel")
-            
+
     # exit the bot from terminal
     if message.content.startswith("[quit]"):
+        await message.delete()
         exit()
-        
+
     # disconnect the bot
     if message.content.startswith("[dc]"):
         voice_user = []
+        await message.delete()
         for voiceClient in client.voice_clients:
             voice_user.append(voiceClient.user)
 
@@ -74,10 +76,12 @@ async def on_message(message):
             await message.channel.send(
                 "this cmd is for playing music with a simply link or name of the music, any other help please use [help]"
             )
+            await message.delete()
             return
 
         if not message.author.voice:
             await message.channel.send("You are not in a voice channel")
+            await message.delete()
             return
 
         if client.user not in message.author.voice.channel.members:
@@ -86,9 +90,11 @@ async def on_message(message):
         else:
             voice = client.voice_clients[0]
 
+        await message.delete()
         cmd = message.content
         new_list = deque()
-
+        link_title = ""
+        link = ""
         if "youtube.com" in cmd.split(" ", 1)[1]:
             cmd_idx = cmd.split(" ", 1)[1].find("youtube.com")
             update_cmd = cmd.split(" ", 1)[1][cmd_idx:]
@@ -98,6 +104,7 @@ async def on_message(message):
             if link_title.startswith("link doesn't work"):
                 await message.channel.send(link_title)
                 return
+            link = cmd.split(" ", 1)[1]
 
         elif "open.spotify.com" in cmd.split(" ", 1)[1]:
             cmd_idx = cmd.split(" ", 1)[1].find("open.spotify.com")
@@ -112,13 +119,15 @@ async def on_message(message):
             elif link_title.startswith("link doesn't work"):
                 await message.channel.send(link_title)
                 return
+            link = cmd.split(" ", 1)[1]
         elif cmd.split(" ", 2)[1].startswith("yt"):
-            if len(Search(message.content.split(" ", 2)[2]).results) == 0:
+            search = Search(message.content.split(" ", 2)[2]).results
+            if len(search) == 0:
                 await message.channel.send("No result is being found")
                 return
             new_list.append(message.content.split(" ", 2)[2])
             link_title = message.content.split(" ", 2)[2]
-
+            link = "YouTube search don't have link"
         elif cmd.split(" ", 2)[1].startswith("artists"):
             new_list = await musicplaylist.spotify_artist(
                 message.content.split(" ", 2)[2], new_list
@@ -127,6 +136,7 @@ async def on_message(message):
                 await message.channel.send("No artists being found")
                 return
             link_title = musicplaylist.link_title
+            link = musicplaylist.link
         elif cmd.split(" ", 2)[1].startswith("albums"):
             new_list = await musicplaylist.spotify_album(
                 message.content.split(" ", 2)[2], new_list
@@ -135,14 +145,16 @@ async def on_message(message):
                 await message.channel.send("No album being found")
                 return
             link_title = musicplaylist.link_title
+            link = musicplaylist.link
         elif cmd.split(" ", 2)[1].startswith("playlists"):
-            new_list = await musicplaylist.spotify_album(
+            new_list = await musicplaylist.spotify_playlist(
                 message.content.split(" ", 2)[2], new_list
             )
             if new_list == None:
                 await message.channel.send("No album being found")
                 return
             link_title = musicplaylist.link_title
+            link = musicplaylist.link
         else:
             link_title = await musicplaylist.spotify_search(
                 message.content.split(" ", 1)[1]
@@ -151,10 +163,11 @@ async def on_message(message):
                 await message.channel.send("No song being found")
                 return
             new_list.append(link_title)
+            link = musicplaylist.link
 
         playList.extend(new_list)
         await message.channel.send(f"Added {link_title} to the playlist")
-
+        await message.channel.send(f"```URL Link: {link}```")
         if client.voice_clients[0].source:
             return
 
@@ -162,6 +175,7 @@ async def on_message(message):
 
     # pause the audio
     if message.content.startswith("[pause]"):
+        await message.delete()
         if client.voice_clients[0].is_playing():
             client.voice_clients[0].pause()
         else:
@@ -169,6 +183,7 @@ async def on_message(message):
 
     # skip the audio to next audio in the playlist
     if message.content.startswith("[skip]"):
+        await message.delete()
         if not client.voice_clients or not client.voice_clients[0].is_connected():
             await message.channel.send(
                 "I am not currently connected to a voice channel."
@@ -183,6 +198,7 @@ async def on_message(message):
 
     # clear whole playlist and the current playing audio
     if message.content.startswith("[clear]"):
+        await message.delete()
         if client.voice_clients and (
             client.voice_clients[0].is_playing() or client.voice_clients[0].is_paused()
         ):
@@ -214,22 +230,22 @@ async def on_message(message):
         if playList:
             queue_info = "Queue:\n"
 
-            async def get_title(link):
+            for idx, link in enumerate(playList, start=1):
                 try:
                     yt = YouTube(link)
-                    return re.sub(r'[\\/*?:"<>|]', "", yt.title)
+                    title = re.sub(r'[\\/*?:"<>|]', "", yt.title)
+                    queue_info += f"{idx}. {title}\n"
                 except:
-                    return link
-
-            queue_info += await asyncio.gather(
-                *(get_title(link) for link in playList[:10])
-            )
-            await message.channel.send(queue_info)
+                    queue_info += f"{idx}. {link}\n"
+                if idx == 10:
+                    break
+                await message.channel.send(queue_info)
         else:
             await message.channel.send("The queue is empty.")
 
-    # show the cmd that bot offers
+        # show the cmd that bot offers
     if message.content.startswith("[help]"):
+        await message.delete()
         if len(message.content.split(" ", 1)) == 1:
             await message.channel.send(
                 "```"
@@ -257,7 +273,7 @@ async def on_message(message):
                 + "\talbums: look the first album result in spotify search\n"
                 + "\tartists: look the first artist result in spotify search\n"
                 + "\tplaylist: look the first playlist result in spotify search\n"
-                + "Example: "
+                + "Example: \n"
                 + "\t[radio] https://open.spotify.com/artist/5JZ7CnR6gTvEMKX4g70Amv?si=4bj8VGu3QA-N_G2zprlFow \n"
                 + "\t[radio] https://www.youtube.com/shorts/jeCvbd7gejE \n"
                 + "\t[radio] Fly Me To The Moon \n"
@@ -269,6 +285,7 @@ async def on_message(message):
             )
         else:
             await message.channel.send(" no such cmd futher informations")
+
 
 # the bot has voice recognition
 # @client.event

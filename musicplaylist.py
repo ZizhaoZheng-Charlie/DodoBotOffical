@@ -36,7 +36,6 @@ async def play_audio(voice, queue):
         os.remove(f"{title}.mp3")
         await play_audio(voice, playList)
 
-
 # play audio depends on the result of speech to text
 def play_audio_by_result(video_result, voice):
     global title
@@ -51,6 +50,7 @@ def play_audio_by_result(video_result, voice):
 
 # append the youtube link into the playlist
 async def youtube_link(link):
+    # pass the title and link back up
     global link_title
     category = link[11:]
     new_list = deque()
@@ -69,6 +69,7 @@ async def youtube_link(link):
         except:
             link_title = "link doesn't work"
             return new_list
+
         new_list.append(link)
     elif category.startswith("/shorts/"):
         try:
@@ -85,6 +86,7 @@ async def youtube_link(link):
 
 # append the spotify link into the playlist
 async def spotify_link(link, playList):
+   # pass the title and link back up
     global link_title
     try:
         result = spotify.search_URL(link)
@@ -96,7 +98,6 @@ async def spotify_link(link, playList):
         link_title = "link doesn't work"
         return playList  
     spotify_list = link.split("/")
-
     if "album" in spotify_list:
         data = result["tracks"]
         link_title = f"{result['name']} by {result['artists'][0]['name']}"
@@ -140,17 +141,18 @@ async def spotify_link(link, playList):
 
 # search song using message contents, only get the first results
 async def spotify_search(search):
+    global link
     update_search = search.replace(" ", "+")
     data = await spotify.search_song(update_search)
     print(data)
     if data["total"] == 0:
         return None
-
+    link = f"https://open.spotify.com/track/{data['items'][0]['id']}"
     return f'{data["items"][0]["name"]} by {await spotify.song_artists_in_album(data["items"][0])}'
 
 # search artists using message contents, only get the first results
 async def spotify_artist(search, playList):
-    global link_title
+    global link_title, link
     update_search = search.replace(" ", "+")
     data = await spotify.search_for_artist(update_search)
 
@@ -159,7 +161,7 @@ async def spotify_artist(search, playList):
 
     result = await spotify.search_song_by_artistID(data["items"][0]["id"])
     link_title = f"{result[0]['artists'][0]['name']} Top tracks"
-
+    link = f"https://open.spotify.com/artist/{data['items'][0]['id']}"
     for song in result:
         track = f"{song['name']} by {await spotify.song_artists_in_album(song)}"
         playList.append(track)
@@ -168,7 +170,7 @@ async def spotify_artist(search, playList):
 
 # search albums using message contents, only get the first results
 async def spotify_album(search, playList):
-    global link_title
+    global link_title,link
     update_search = search.replace(" ", "+")
     data = await spotify.search_for_album(update_search)
     if data["total"] == 0:
@@ -176,25 +178,27 @@ async def spotify_album(search, playList):
     result = data['items'][0]
     link_title = f"{result['name']} by {result['artists'][0]['name']}"
     data = await spotify.search_by_albumID(result["id"])
+    link = f"https://open.spotify.com/album/{result['id']}"
     for song in data["items"]:
         track = f"{song['name']} by {await spotify.song_artists_in_album(song)}"
         playList.append(track)
 
     if data["next"]:
         playList += await spotify.list_of_Song_by_next_page_in_album(data["next"])
-
+        
     return playList
 
 # search playlist using message contents, only get the first results
 async def spotify_playlist(search, playList):
-    global link_title
+    global link_title,link
     update_search = search.replace(" ", "+")
     data = await spotify.search_for_playlist(update_search)
     if data["total"] == 0:
         return None
     result = data['items'][0]
     link_title = f"{result['name']} by {result['owner']['display_name']}"
-    data = await spotify.search_by_albumID(result["id"])
+    data = await spotify.search_by_playlistID(result["id"])
+    link = f"https://open.spotify.com/playlist/{result['id']}"
     for song in data["items"]:
             track = ""
             songname = song["track"]["name"]
