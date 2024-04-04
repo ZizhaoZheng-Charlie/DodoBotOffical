@@ -3,6 +3,7 @@
 This repository contains a collection of commands for a Discord bot. Each command is triggered by a specific prefix and performs a specific action within a Discord server.
 
 ## Basic Requirements
+
 - All requirements could be install from the requirement.txt
 - Python 3.7 or higher
 - Discord.py library (install via `pip install discord.py`)
@@ -60,3 +61,21 @@ To use these commands, prefix each command with the corresponding prefix (e.g., 
 
 - Some commands require the bot to be connected to a voice channel.
 - Ensure that necessary permissions are granted for the bot to perform actions within the server.
+
+## Voice Command
+
+### play
+
+**Description** This command play the audio by Youtube searchs the parameters
+
+### pause the music
+
+**Description** This command pause and unpause the audio
+
+### skip
+
+**Description:** This command is used to skip the current item in the playlist and move to the next one.
+
+### show playlist
+
+**Description:** This command is used to display the currently playing song (if any) and the upcoming songs in the queue.

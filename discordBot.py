@@ -288,96 +288,99 @@ async def on_message(message):
 
 
 # the bot has voice recognition
-# @client.event
-# async def on_voice_state_update(member, before, after):
-#     if client.voice_clients:
-#         voice_client = client.voice_clients[0]
-#         await asyncio.sleep(2)
-#         while after.channel and not before.channel:
-#             try:
-#                 r = sr.Recognizer()
-#                 r.pause_threshold = 1.5
-#                 r.phrase_threshold = 0.5
-#                 timeout = 1.5
-#                 with sr.Microphone(device_index=2) as source:
-#                     audio = r.listen(source, timeout=1, phrase_time_limit=2.5)
-#             except sr.WaitTimeoutError:
-#                 continue
-#             try:
-#                 text = r.recognize_google(audio)
-#                 print(text)
-#                 await asyncio.sleep(1)
-#                 if text.startswith("play"):
-#                     video_title = text.split(" ", 1)
-#                     if len(video_title) == 1:
+@client.event
+async def on_voice_state_update(member, before, after):
+    if client.voice_clients:
+        voice_client = client.voice_clients[0]
+        await asyncio.sleep(2)
+        while after.channel and not before.channel:
+            try:
+                r = sr.Recognizer()
+                r.pause_threshold = 1.5
+                r.phrase_threshold = 0.5
+                timeout = 1.5
+                with sr.Microphone(device_index=2) as source:
+                    audio = r.listen(source, timeout=1, phrase_time_limit=2.5)
+            except sr.WaitTimeoutError:
+                continue
+            try:
+                text = r.recognize_google(audio)
+                print(text)
+                await asyncio.sleep(1)
+                if text.startswith("play"):
+                    video_title = text.split(" ", 1)
+                    if len(video_title) == 1:
 
-#                         if voice_client.is_playing():
-#                             voice_client.pause()
-#                         engine.say("Try again with the command")
-#                         engine.runAndWait()
-#                         engine.stop()
-#                         voice_client.resume()
-#                         continue
+                        if voice_client.is_playing():
+                            voice_client.pause()
+                        engine.say("Try again with the command")
+                        engine.runAndWait()
+                        engine.stop()
+                        voice_client.resume()
+                        continue
 
-#                     if voice_client.is_playing() or voice_client.is_paused():
-#                         search_result = Search(video_title).results[0]
-#                         playList.append(search_result.title)
-#                         if voice_client.is_playing():
-#                             voice_client.pause()
-#                         engine.say(f"Added {search_result.title} to playlist.")
-#                         engine.runAndWait()
-#                         engine.stop()
-#                         voice_client.resume()
-#                         continue
+                    if voice_client.is_playing() or voice_client.is_paused():
+                        search_result = Search(video_title).results[0]
+                        playList.append(search_result.title)
+                        if voice_client.is_playing():
+                            voice_client.pause()
+                        engine.say(f"Added {search_result.title} to playlist.")
+                        engine.runAndWait()
+                        engine.stop()
+                        voice_client.resume()
+                        continue
 
-#                     musicplaylist.play_audio_by_result(video_title, voice_client)
+                    musicplaylist.play_audio_by_result(video_title, voice_client)
 
-#                 if text.startswith("show playlist"):
-#                     if not voice_client.is_playing():
-#                         engine.say("There is no song currrently playing")
-#                         engine.runAndWait()
-#                     else:
-#                         engine.say(f"Currently playing: {musicplaylist.title}")
-#                         engine.runAndWait()
+                if text.startswith("show playlist"):
+                    if not voice_client.is_playing():
+                        engine.say("There is no song currently playing")
+                        engine.runAndWait()
+                    else:
+                        engine.say(f"Currently playing: {musicplaylist.title}")
+                        engine.runAndWait()
 
-#                     if playList:
-#                         engine.say("Queue")
-#                         for i, song in enumerate(playList, start=1):
-#                             try:
-#                                 yt = YouTube(song)
-#                             except:
-#                                 yt = Search(song).results[0]
-#                             title = re.sub(r'[\\/*?:"<>|]', "", yt.title)
-#                             engine.say(f"{i} {title}")
-#                             engine.runAndWait()
-#                     else:
-#                         engine.say("The queue is empty")
-#                         engine.runAndWait()
+                    if playList:
+                        engine.say("Queue")
+                        for i, song in enumerate(playList, start=1):
+                            try:
+                                yt = YouTube(song)
+                                title = re.sub(r'[\\/*?:"<>|]', "", yt.title)
+                            except:
+                                title = song
+                            
+                            engine.say(f"{i} {title}")
+                            engine.runAndWait()
+                            if i == 10:
+                                break
+                    else:
+                        engine.say("The queue is empty")
+                        engine.runAndWait()
 
-#                     engine.stop()
+                    engine.stop()
 
-#                 if text.startswith("pause the music"):
-#                     if voice_client.is_playing():
-#                         voice_client.pause()
-#                     else:
-#                         voice_client.resume()
+                if text.startswith("pause the music"):
+                    if voice_client.is_playing():
+                        voice_client.pause()
+                    else:
+                        voice_client.resume()
 
-#                 if text.startswith("skip"):
-#                     if len(playList) == 0:
-#                         engine.say("There are no items in the playlist to skip.")
-#                         engine.runAndWait()
-#                         engine.stop()
-#                         continue
-#                     voice_client.stop()
+                if text.startswith("skip"):
+                    if len(playList) == 0:
+                        engine.say("There are no items in the playlist to skip.")
+                        engine.runAndWait()
+                        engine.stop()
+                        continue
+                    voice_client.stop()
 
-#                 if not voice_client.source and playList:
-#                     voice_client.stop()
-#                     await asyncio.sleep(2)
-#                     video_title = playList.popleft()
-#                     musicplaylist.play_audio_by_result(video_title, voice_client)
-#             except sr.UnknownValueError:
-#                 await asyncio.sleep(1)
-#             await asyncio.sleep(0.3)
+                if not voice_client.source and playList:
+                    voice_client.stop()
+                    await asyncio.sleep(2)
+                    video_title = playList.popleft()
+                    musicplaylist.play_audio_by_result(video_title, voice_client)
+            except sr.UnknownValueError:
+                await asyncio.sleep(1)
+            await asyncio.sleep(0.3)
 
 
 client.run(os.getenv("TOKEN"))
