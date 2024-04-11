@@ -53,6 +53,13 @@ This repository contains a collection of commands for a Discord bot. Each comman
 
 **Description:** This command is used to display the currently playing song (if any) and the upcoming songs in the queue.
 
+### [shuffle]
+
+**Description:** This command is shuffle the current queue of songs.
+
+### [sradio]
+
+**Description:** This command is shuffle the added playlist or songs into the queue.
 ## Usage
 
 To use these commands, prefix each command with the corresponding prefix (e.g., `[help]`, `[connect]`, etc.) in a Discord server where the bot is present.
@@ -79,3 +86,4 @@ To use these commands, prefix each command with the corresponding prefix (e.g., 
 ### show playlist
 
 **Description:** This command is used to display the currently playing song (if any) and the upcoming songs in the queue.
+
