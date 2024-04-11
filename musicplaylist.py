@@ -14,6 +14,7 @@ load_dotenv()
 
 # play audio with URL or song name
 async def play_audio(voice, queue):
+
     global playList, title
     playList = queue
     link = playList.popleft()

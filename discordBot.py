@@ -9,7 +9,7 @@ import re
 import asyncio
 import speech_recognition as sr
 import pyttsx3
-
+import random
 
 load_dotenv()
 intents = discord.Intents.default()
@@ -167,12 +167,11 @@ async def on_message(message):
 
         playList.extend(new_list)
         await message.channel.send(f"Added {link_title} to the playlist")
-        await message.channel.send(f"```URL Link: {link}```")
+        await message.channel.send(f"URL Link: ```{link}```")
         if client.voice_clients[0].source:
             return
 
         await musicplaylist.play_audio(voice, playList)
-
     # pause the audio
     if message.content.startswith("[pause]"):
         await message.delete()
@@ -180,7 +179,6 @@ async def on_message(message):
             client.voice_clients[0].pause()
         else:
             client.voice_clients[0].resume()
-
     # skip the audio to next audio in the playlist
     if message.content.startswith("[skip]"):
         await message.delete()
@@ -195,25 +193,20 @@ async def on_message(message):
             return
 
         client.voice_clients[0].stop()
-
     # clear whole playlist and the current playing audio
     if message.content.startswith("[clear]"):
         await message.delete()
-        if client.voice_clients and (
-            client.voice_clients[0].is_playing() or client.voice_clients[0].is_paused()
-        ):
+        if client.voice_clients and (client.voice_clients[0].is_playing() or client.voice_clients[0].is_paused()):
+            playList.clear()
+            musicplaylist.playList.clear()
             # Stop the playback
             client.voice_clients[0].stop()
             # Await the stop to ensure it's completed
             await asyncio.sleep(1)
-            # Assuming musicplaylist.title contains the title of the currently playing song
+            # # Assuming musicplaylist.title contains the title of the currently playing song
             if os.path.exists(f"{musicplaylist.title}.mp3"):
                 # Remove the corresponding MP3 file
                 os.remove(f"{musicplaylist.title}.mp3")
-
-        # Clear the playlist
-        playList.clear()
-
     # show the current queue
     if message.content.startswith("[queue]"):
         if (
@@ -242,8 +235,7 @@ async def on_message(message):
             await message.channel.send(queue_info)
         else:
             await message.channel.send("The queue is empty.")
-
-        # show the cmd that bot offers
+    # show the cmd that bot offers
     if message.content.startswith("[help]"):
         await message.delete()
         if len(message.content.split(" ", 1)) == 1:
@@ -285,8 +277,126 @@ async def on_message(message):
             )
         else:
             await message.channel.send(" no such cmd futher informations")
+    #shuffle the current queue
+    if message.content.startswith("[shuffle]"):
+        if not message.author.voice:
+            await message.channel.send("You are not in a voice channel")
+            await message.delete()
+            return
 
+        if client.user not in message.author.voice.channel.members:
+            channel = message.author.voice.channel
+            voice = await channel.connect()
+        else:
+            voice = client.voice_clients[0]
 
+        await message.delete()
+        if playList:
+            random.shuffle(playList)
+        else:
+            await message.channel.send("The queue is empty.")
+    # shuffle the added playlist
+    if message.content.startswith("[sradio]"):
+        if len(message.content.split(" ", 1)) == 1:
+            await message.channel.send(
+                "this cmd is for playing music with a simply link or name of the music, any other help please use [help]"
+            )
+            await message.delete()
+            return
+
+        if not message.author.voice:
+            await message.channel.send("You are not in a voice channel")
+            await message.delete()
+            return
+
+        if client.user not in message.author.voice.channel.members:
+            channel = message.author.voice.channel
+            voice = await channel.connect()
+        else:
+            voice = client.voice_clients[0]
+
+        await message.delete()
+        cmd = message.content
+        new_list = deque()
+        link_title = ""
+        link = ""
+        if "youtube.com" in cmd.split(" ", 1)[1]:
+            cmd_idx = cmd.split(" ", 1)[1].find("youtube.com")
+            update_cmd = cmd.split(" ", 1)[1][cmd_idx:]
+            new_list.extend(await musicplaylist.youtube_link(update_cmd))
+            link_title = musicplaylist.link_title
+
+            if link_title.startswith("link doesn't work"):
+                await message.channel.send(link_title)
+                return
+            link = cmd.split(" ", 1)[1]
+
+        elif "open.spotify.com" in cmd.split(" ", 1)[1]:
+            cmd_idx = cmd.split(" ", 1)[1].find("open.spotify.com")
+            update_cmd = cmd.split(" ", 1)[1][cmd_idx:]
+            new_list = await musicplaylist.spotify_link(update_cmd, new_list)
+            link_title = musicplaylist.link_title
+            if link_title.startswith(
+                "This can only find song, albums, artists, and playlists"
+            ):
+                await message.channel.send(link_title)
+                return
+            elif link_title.startswith("link doesn't work"):
+                await message.channel.send(link_title)
+                return
+            link = cmd.split(" ", 1)[1]
+        elif cmd.split(" ", 2)[1].startswith("yt"):
+            search = Search(message.content.split(" ", 2)[2]).results
+            if len(search) == 0:
+                await message.channel.send("No result is being found")
+                return
+            new_list.append(message.content.split(" ", 2)[2])
+            link_title = message.content.split(" ", 2)[2]
+            link = "YouTube search don't have link"
+        elif cmd.split(" ", 2)[1].startswith("artists"):
+            new_list = await musicplaylist.spotify_artist(
+                message.content.split(" ", 2)[2], new_list
+            )
+            if new_list == None:
+                await message.channel.send("No artists being found")
+                return
+            link_title = musicplaylist.link_title
+            link = musicplaylist.link
+        elif cmd.split(" ", 2)[1].startswith("albums"):
+            new_list = await musicplaylist.spotify_album(
+                message.content.split(" ", 2)[2], new_list
+            )
+            if new_list == None:
+                await message.channel.send("No album being found")
+                return
+            link_title = musicplaylist.link_title
+            link = musicplaylist.link
+        elif cmd.split(" ", 2)[1].startswith("playlists"):
+            new_list = await musicplaylist.spotify_playlist(
+                message.content.split(" ", 2)[2], new_list
+            )
+            if new_list == None:
+                await message.channel.send("No album being found")
+                return
+            link_title = musicplaylist.link_title
+            link = musicplaylist.link
+        else:
+            link_title = await musicplaylist.spotify_search(
+                message.content.split(" ", 1)[1]
+            )
+            if link_title == None:
+                await message.channel.send("No song being found")
+                return
+            new_list.append(link_title)
+            link = musicplaylist.link
+        random.shuffle(new_list)
+        playList.extend(new_list)
+        await message.channel.send(f"Added {link_title} to the playlist")
+        await message.channel.send(f"URL Link: ```{link}```")
+        if client.voice_clients[0].source:
+            return
+
+        await musicplaylist.play_audio(voice, playList)
 # the bot has voice recognition
 # @client.event
 # async def on_voice_state_update(member, before, after):
