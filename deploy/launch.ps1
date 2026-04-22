@@ -38,49 +38,49 @@ param(
     [string] $InstanceType = "t3.micro"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
+$PSNativeCommandUseErrorActionPreference = $false
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pemPath = Join-Path $here "$KeyName.pem"
 
-function Invoke-Aws {
-    param([Parameter(ValueFromRemainingArguments)]$Args)
-    $output = & aws @Args --region $Region --output json 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "aws $($Args -join ' ') failed: $output" }
-    return $output
+function Test-AwsCmd {
+    param([Parameter(ValueFromRemainingArguments)] $Args)
+    & aws @Args --region $Region --output json 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
 }
 
 Write-Host "Region: $Region  Key: $KeyName  SG: $SgName" -ForegroundColor Cyan
 
 # -------- 1. Key pair --------
-$keyExists = & aws ec2 describe-key-pairs --key-names $KeyName --region $Region 2>$null
-if ($LASTEXITCODE -ne 0) {
+if (Test-AwsCmd ec2 describe-key-pairs --key-names $KeyName) {
+    Write-Host "Key pair $KeyName already exists (assuming PEM at $pemPath)"
+} else {
     Write-Host "Creating key pair $KeyName" -ForegroundColor Green
-    $material = (aws ec2 create-key-pair --key-name $KeyName --region $Region --query KeyMaterial --output text)
-    $material | Set-Content -Path $pemPath -NoNewline -Encoding ascii
-    # Windows cannot easily chmod 400; use icacls to remove inheritance.
+    # Use JSON output + ConvertFrom-Json so embedded \n newlines survive exactly.
+    $kpJson = (& aws ec2 create-key-pair --key-name $KeyName --region $Region --output json)
+    if ($LASTEXITCODE -ne 0) { throw "create-key-pair failed" }
+    $material = ($kpJson | ConvertFrom-Json).KeyMaterial
+    [System.IO.File]::WriteAllText($pemPath, $material, [System.Text.Encoding]::ASCII)
     icacls $pemPath /inheritance:r | Out-Null
     icacls $pemPath /grant:r "$($env:USERNAME):(R)" | Out-Null
     Write-Host "Saved PEM to $pemPath" -ForegroundColor Green
-} else {
-    Write-Host "Key pair $KeyName already exists (assuming PEM at $pemPath)"
 }
 
 # -------- 2. Security group --------
 $sgId = $null
-try {
-    $sgId = (aws ec2 describe-security-groups --group-names $SgName --region $Region --query 'SecurityGroups[0].GroupId' --output text) 2>$null
-} catch {}
-if (-not $sgId -or $sgId -eq "None" -or $LASTEXITCODE -ne 0) {
+if (Test-AwsCmd ec2 describe-security-groups --group-names $SgName) {
+    $sgId = (& aws ec2 describe-security-groups --group-names $SgName --region $Region --query 'SecurityGroups[0].GroupId' --output text)
+    Write-Host "Security group exists: $sgId"
+} else {
     Write-Host "Creating security group $SgName" -ForegroundColor Green
-    $sgId = (aws ec2 create-security-group --group-name $SgName `
+    $sgId = (& aws ec2 create-security-group --group-name $SgName `
         --description "DodoBot SSH access" --region $Region --query GroupId --output text)
+    if ($LASTEXITCODE -ne 0) { throw "create-security-group failed" }
 
     $myIp = (Invoke-RestMethod -Uri "https://checkip.amazonaws.com").Trim()
     Write-Host "Allowing SSH from $myIp/32" -ForegroundColor Green
-    aws ec2 authorize-security-group-ingress --group-id $sgId `
+    & aws ec2 authorize-security-group-ingress --group-id $sgId `
         --protocol tcp --port 22 --cidr "$myIp/32" --region $Region | Out-Null
-} else {
-    Write-Host "Security group exists: $sgId"
 }
 
 # -------- 3. Latest Amazon Linux 2023 AMI --------
