@@ -1,89 +1,165 @@
-# Discord Bot Commands
+# DodoBot
 
-This repository contains a collection of commands for a Discord bot. Each command is triggered by a specific prefix and performs a specific action within a Discord server.
+A modern Discord music bot. YouTube + Spotify, slash commands, rich embeds with interactive controls, and auto-recommend. Designed to run 24/7 on an AWS `t3.micro` EC2 free-tier instance.
 
-## Basic Requirements
+Rewritten in 2026: migrated off the unmaintained `pytube` to `yt-dlp 2026.3+`, `discord.py 2.7+`, `spotipy`. Speech-recognition features removed.
 
-- All requirements could be install from the requirement.txt
-- Python 3.7 or higher
-- Discord.py library (install via `pip install discord.py`)
-- pytube library (install via `pip install pytube`)
-- asyncio library (included in Python standard library)
-- re library (included in Python standard library)
-- pyaudio library (install via `pip install pyaudio`)
-- python-dotenv library (install via `pip install python-dotenv`)
-- pynacl library (install via `pip install pynacl`)
-- ffmpeg-python library (install via `pip install ffmpeg-python` and ffmpeg)
-- Discord API key
-- Spotify API key
+## Features
 
-## Voice Requirements (only avaliable for the who started the discord bot)
+- `/play` with a **multi-result picker** - if your query matches several tracks, a dropdown appears so you can pick the right one before anything is enqueued.
+- **Rich embeds** for every response: now-playing shows title, thumbnail, duration, uploader, queue length, and auto-recommend state.
+- **Interactive control panel** attached to the now-playing message: Pause/Resume, Skip, Shuffle, Auto-recommend toggle, Refresh, Disconnect (discord buttons).
+- **Auto-recommend mode**: when the queue empties and auto-recommend is ON, the bot pulls the YouTube Mix of the last track and keeps playing related songs.
+- **Direct URL support**: paste any YouTube video / playlist / shorts link, or any Spotify track / album / playlist / artist link, and it just works. No picker shown for direct URLs (it goes straight into the queue).
+- **Streaming, not downloading**: `yt-dlp` extracts the stream URL and `FFmpeg` pipes it directly to Discord - no temp files written to disk.
 
-- pyttsx3 library (install via `pip install pyttsx3`)
-- SpeechRecognition (install via `pip install SpeechRecognition`)
-- pyaudio (install via `pip install pyaudio`)
+## Slash commands
 
-## Commands
+| Command | Description |
+|---------|-------------|
+| `/play query:<text or URL>` | Enqueue a song. Text queries show a 5-result picker; URLs enqueue directly. |
+| `/pause` | Pause or resume playback. |
+| `/skip` | Skip the current track. |
+| `/queue` | Show the upcoming queue. |
+| `/shuffle` | Shuffle the queue. |
+| `/clear` | Clear the queue and stop playback. |
+| `/autorecommend` | Toggle auto-recommend mode. |
+| `/disconnect` | Disconnect the bot from voice. |
 
-### [help]
+## Environment variables
 
-**Description:** This command displays a list of available commands or provides information about a specific command.
+Copy `.env.example` to `.env` and fill in:
 
-### [connect]
+```env
+DISCORD_TOKEN=<your bot token>
+SPOTIFY_CLIENT_ID=<optional>
+SPOTIFY_CLIENT_SECRET=<optional>
+```
 
-**Description:** This command allows the bot to connect to the voice channel of the user who issued the command.
+- **`DISCORD_TOKEN`** (required) - the bot token from the [Discord developer portal](https://discord.com/developers/applications).
+- **`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`** (optional) - Spotify Web API app credentials. Without them the bot still plays YouTube fine; Spotify URLs will return a friendly error.
+  - Heads up: as of 2026, Spotify restricts the Client Credentials flow to apps whose owner has an active Spotify Premium subscription. If you hit `403 premium required`, upgrade the app-owner account.
 
-### [radio]
+Legacy names `TOKEN`, `SPOTIFY_ID`, `SPOTIFY_SECRET` are still honoured so existing `.env` files keep working.
 
-**Description:** This command is used to play music in a voice channel. It accepts various types of inputs, such as YouTube links, Spotify links, or search queries for YouTube or Spotify.
+## Local run
 
-### [pause]
+Requires Python 3.11+ and `ffmpeg` on the `PATH`.
 
-**Description:** This command is used to pause or resume audio playback in the currently connected voice channel.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env   # then edit .env
+python -m bot.main
+```
 
-### [skip]
+On Linux/macOS:
 
-**Description:** This command is used to skip the current item in the playlist and move to the next one.
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # then edit .env
+python -m bot.main
+```
 
-### [clear]
+## Tests
 
-**Description:** This command is used to clear the playlist and stop the currently playing audio, if any.
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest                    # unit tests only
+python -m pytest -m integration     # live yt-dlp + spotify checks
+python -m ruff check .
+```
 
-### [queue]
+## AWS deployment (free tier)
 
-**Description:** This command is used to display the currently playing song (if any) and the upcoming songs in the queue.
+**Why EC2 and not Lambda?** A Discord music bot needs a **persistent WebSocket gateway** and a **UDP voice connection**. AWS Lambda has a 15-minute execution cap and charges per millisecond - a 24/7 WebSocket cannot run there, and Lambda does not support UDP at all. Lambda is only useful for stateless HTTP-Interactions bots (no voice).
 
-### [shuffle]
+**So the deployment target is a single `t3.micro` EC2 instance** (AWS 12-month free tier: 750 hours/month - exactly enough for one instance running 24/7). After the 12-month window it costs ~$7.50/month, or drop to `t4g.nano` (ARM Graviton) for ~$3/month.
 
-**Description:** This command is shuffle the current queue of songs.
+### Provision with one command
 
-### [sradio]
+From a machine with `aws-cli` authenticated:
 
-**Description:** This command is shuffle the added playlist or songs into the queue.
-## Usage
+```powershell
+.\deploy\launch.ps1 -Region us-east-1 -RepoUrl https://github.com/<you>/<repo>.git
+```
 
-To use these commands, prefix each command with the corresponding prefix (e.g., `[help]`, `[connect]`, etc.) in a Discord server where the bot is present.
+This:
 
-## Notes
+1. Creates a key pair `dodobot-key` (PEM saved to `deploy\dodobot-key.pem`, locked down via `icacls`).
+2. Creates a `dodobot-sg` security group that only allows SSH from your current public IP.
+3. Finds the latest Amazon Linux 2023 AMI.
+4. Launches a `t3.micro` with 30 GB gp3, passing `deploy/bootstrap.sh` as user-data.
 
-- Some commands require the bot to be connected to a voice channel.
-- Ensure that necessary permissions are granted for the bot to perform actions within the server.
+`bootstrap.sh` runs on first boot and:
+- installs Python 3.12, git, and a static ffmpeg build,
+- creates the `dodobot` system user,
+- clones this repo to `/opt/dodobot`,
+- creates a venv and installs `requirements.txt`,
+- installs `deploy/dodobot.service` and enables it.
 
-## Voice Command
+### Upload your `.env`
 
-### play
+The service won't start until `DISCORD_TOKEN` is populated.
 
-**Description** This command play the audio by Youtube searchs the parameters
+```powershell
+scp -i .\deploy\dodobot-key.pem .\.env ec2-user@<public-ip>:/tmp/.env
+ssh -i .\deploy\dodobot-key.pem ec2-user@<public-ip> `
+  'sudo mv /tmp/.env /opt/dodobot/.env && sudo chown dodobot:dodobot /opt/dodobot/.env && sudo chmod 600 /opt/dodobot/.env && sudo systemctl restart dodobot'
+```
 
-### pause the music
+### Logs
 
-**Description** This command pause and unpause the audio
+```powershell
+ssh -i .\deploy\dodobot-key.pem ec2-user@<public-ip> 'sudo journalctl -u dodobot -f'
+```
 
-### skip
+### Updating
 
-**Description:** This command is used to skip the current item in the playlist and move to the next one.
+SSH in and:
 
-### show playlist
+```bash
+cd /opt/dodobot
+sudo -u dodobot git pull
+sudo -u dodobot .venv/bin/pip install -r requirements.txt
+sudo systemctl restart dodobot
+```
 
-**Description:** This command is used to display the currently playing song (if any) and the upcoming songs in the queue.
+## Project layout
 
+```
+bot/
+  main.py           # entry; builds bot, syncs slash commands
+  config.py         # env loading
+  audio.py          # yt-dlp streaming + FFmpeg source + YouTube Mix fetch
+  search.py         # URL routing (YouTube / Spotify / text query)
+  queue.py          # per-guild GuildQueue
+  player.py         # playback loop, voice client, auto-recommend
+  embeds.py         # rich-embed builders
+  spotify_client.py # spotipy wrapper: URLs + search
+  cogs/
+    music.py        # Music cog (slash commands)
+    views.py        # SongPickerView + ControlPanelView
+deploy/
+  launch.ps1        # AWS CLI provisioning
+  bootstrap.sh      # EC2 user-data
+  dodobot.service   # systemd unit
+tests/              # pytest suite
+```
+
+## What changed from v1
+
+- Removed: `speech_recognition`, `pyttsx3`, `pyaudio`, `gtts`, and all voice-command code.
+- Removed: 82 MB `ffmpeg.exe` Windows binary from the repo (installed on-host instead).
+- Removed: `[prefix]` message commands (`[radio]`, `[sradio]`, `[pause]`, etc.) in favour of slash commands.
+- Removed: `pytube` (unmaintained; YouTube detection loops broke).
+- Removed: download-to-disk playback (`<title>.mp3` files). Everything streams now.
+- Added: multi-result picker, interactive button panel, rich embeds, auto-recommend.
+- Added: systemd service, EC2 bootstrap scripts, AWS CLI one-shot launcher.
+
+## License
+
+See `LICENSE` in the repo.

@@ -1,9 +1,0 @@
-discord
-python-dotenv
-pynacl
-pytube
-ffmpeg-python
-pyttsx3
-SpeechRecognition
-pyaudio
-gtts

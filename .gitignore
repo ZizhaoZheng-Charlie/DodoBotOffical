@@ -1,3 +1,30 @@
-*.json
-myenv/*
+# Secrets
 .env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+myenv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Audio scratch
+*.mp3
+*.webm
+*.m4a
+*.opus
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Legacy (historical Windows ffmpeg)
+ffmpeg.exe

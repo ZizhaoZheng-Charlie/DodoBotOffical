@@ -1,0 +1,21 @@
+[project]
+name = "dodobot"
+version = "2.0.0"
+description = "Discord music bot - slash commands, YouTube + Spotify"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: live network tests (yt-dlp, spotify) - require network",
+]

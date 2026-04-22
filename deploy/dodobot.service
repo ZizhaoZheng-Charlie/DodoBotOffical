@@ -1,0 +1,31 @@
+[Unit]
+Description=DodoBot Discord music bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dodobot
+Group=dodobot
+WorkingDirectory=/opt/dodobot
+EnvironmentFile=/opt/dodobot/.env
+ExecStart=/opt/dodobot/.venv/bin/python -m bot.main
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dodobot
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
